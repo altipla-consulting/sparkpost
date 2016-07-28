@@ -2,10 +2,15 @@ package sparkpost
 
 import (
 	"bytes"
+	"crypto/rand"
+	"crypto/rsa"
+	"crypto/x509"
 	"encoding/json"
+	"encoding/pem"
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"strings"
 
 	"github.com/juju/errors"
 )
@@ -24,10 +29,14 @@ type SendingDomain struct {
 }
 
 type SendingDomainDKIM struct {
-	Private  string `json:"private"`
-	Public   string `json:"public"`
+	Private string `json:"private"`
+	Public  string `json:"public"`
+
+	// Subdomain that will be used to verify; e.g.: scph0316
 	Selector string `json:"selector"`
-	Headers  string `json:"headers"`
+
+	// Colon separated list of headers to sign. SparkPost UI by default uses "from:to:subject:date"
+	Headers string `json:"headers"`
 }
 
 func (c *Client) CreateSendingDomain(domain *SendingDomain) error {
@@ -111,4 +120,34 @@ func (c *Client) call(method, endpoint string, request, response interface{}) er
 	}
 
 	return nil
+}
+
+// Generate a RSA key suitable for DKIM signing and return the private key, the
+// public key and the error.
+func GenerateDKIMKey() (string, string, error) {
+	privKey, err := rsa.GenerateKey(rand.Reader, 1024)
+	if err != nil {
+		return "", "", errors.Trace(err)
+	}
+	privEncoded := pem.EncodeToMemory(&pem.Block{
+		Type:  "RSA PRIVATE KEY",
+		Bytes: x509.MarshalPKCS1PrivateKey(privKey),
+	})
+
+	pubKeyASN1, err := x509.MarshalPKIXPublicKey(&privKey.PublicKey)
+	if err != nil {
+		return "", "", errors.Trace(err)
+	}
+	pubEncoded := pem.EncodeToMemory(&pem.Block{
+		Type:  "RSA PUBLIC KEY",
+		Bytes: pubKeyASN1,
+	})
+
+	private := strings.Split(string(privEncoded), "\n")
+	private = private[1 : len(private)-2]
+
+	public := strings.Split(string(pubEncoded), "\n")
+	public = public[1 : len(public)-2]
+
+	return strings.Join(private, ""), strings.Join(public, ""), nil
 }
