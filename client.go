@@ -83,6 +83,69 @@ func (c *Client) VerifySendingDomain(domain string) (*VerificationStatus, error)
 	}, nil
 }
 
+type Transmission struct {
+	TemplateID       string
+	SubstitutionData interface{}
+	Recipients       []Recipient
+	Tags             []string
+	ReplyTo          string
+}
+
+type Recipient struct {
+	Name  string
+	Email string
+}
+
+type createTransmissionRequest struct {
+	Content          transmissionContent `json:"content"`
+	SubstitutionData interface{}         `json:"substitution_data"`
+	Tags             []string            `json:"tags"`
+	Options          transmissionOptions
+	Recipients       []transmissionRecipient
+}
+
+type transmissionContent struct {
+	TemplateID string `json:"template_id"`
+	ReplyTo    string `json:"reply_to,omitempty"`
+}
+
+type transmissionOptions struct {
+	InlineCSS bool `json:"inline_css,omitempty"`
+}
+
+type transmissionRecipient struct {
+	Address transmissionRecipientAddress `json:"address"`
+}
+
+type transmissionRecipientAddress struct {
+	Name  string `json:"name"`
+	Email string `json:"email"`
+}
+
+func (c *Client) CreateTransmissionFromTemplate(transmission Transmission) error {
+	req := createTransmissionRequest{
+		Content: transmissionContent{
+			TemplateID: transmission.TemplateID,
+			ReplyTo:    transmission.ReplyTo,
+		},
+		SubstitutionData: transmission.SubstitutionData,
+		Tags:             transmission.Tags,
+		Options: transmissionOptions{
+			InlineCSS: true,
+		},
+	}
+	for _, rec := range transmission.Recipients {
+		req.Recipients = append(req.Recipients, transmissionRecipient{
+			Address: transmissionRecipientAddress{
+				Name:  rec.Name,
+				Email: rec.Email,
+			},
+		})
+	}
+
+	return errors.Trace(c.call("POST", "transmissions?num_rcpt_errors=1", req, nil))
+}
+
 func (c *Client) call(method, endpoint string, request, response interface{}) error {
 	buf := bytes.NewBuffer(nil)
 	if err := json.NewEncoder(buf).Encode(request); err != nil {
