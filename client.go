@@ -97,11 +97,11 @@ type Recipient struct {
 }
 
 type createTransmissionRequest struct {
-	Content          transmissionContent `json:"content"`
-	SubstitutionData interface{}         `json:"substitution_data"`
-	Tags             []string            `json:"tags"`
-	Options          transmissionOptions
-	Recipients       []transmissionRecipient
+	Content          transmissionContent     `json:"content"`
+	SubstitutionData interface{}             `json:"substitution_data"`
+	Tags             []string                `json:"tags"`
+	Options          transmissionOptions     `json:"options"`
+	Recipients       []transmissionRecipient `json:"recipients"`
 }
 
 type transmissionContent struct {
