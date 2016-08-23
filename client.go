@@ -150,7 +150,7 @@ type CallError struct {
 	Errors []Error `json:"errors"`
 }
 
-func (err CallError) Error() string {
+func (err *CallError) Error() string {
 	return fmt.Sprintf("sparkpost call error: %+v", err.Errors)
 }
 
