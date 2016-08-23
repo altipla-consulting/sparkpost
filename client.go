@@ -146,6 +146,20 @@ func (c *Client) CreateTransmissionFromTemplate(transmission Transmission) error
 	return errors.Trace(c.call("POST", "transmissions?num_rcpt_errors=1", req, nil))
 }
 
+type CallError struct {
+	Errors []Error `json:"errors"`
+}
+
+func (err CallError) Error() string {
+	return fmt.Sprintf("sparkpost call error: %+v", err.Errors)
+}
+
+type Error struct {
+	Message     string `json:"message"`
+	Description string `json:"description"`
+	Code        string `json:"code"`
+}
+
 func (c *Client) call(method, endpoint string, request, response interface{}) error {
 	buf := bytes.NewBuffer(nil)
 	if err := json.NewEncoder(buf).Encode(request); err != nil {
@@ -168,7 +182,11 @@ func (c *Client) call(method, endpoint string, request, response interface{}) er
 			return errors.Trace(err)
 		}
 
-		return errors.Errorf("sparkpost error: %s", content)
+		callErr := new(CallError)
+		if err := json.Unmarshal(content, callErr); err != nil {
+			return errors.Errorf("sparkpost error: %s", content)
+		}
+		return errors.Trace(callErr)
 	}
 
 	if response != nil {
